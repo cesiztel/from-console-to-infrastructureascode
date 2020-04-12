@@ -10,7 +10,7 @@ Official site: https://aws.amazon.com/blogs/compute/
 
 #### Articles
 
-- Using Amazon API Gateway as a proxy for DynamoDB
+- **Using Amazon API Gateway as a proxy for DynamoDB**
 
   Official link: https://aws.amazon.com/blogs/compute/using-amazon-api-gateway-as-a-proxy-for-dynamodb/
   
@@ -19,6 +19,6 @@ Official site: https://aws.amazon.com/blogs/compute/
   * Create the DynamoDB stack: [dynamodb-template.yaml](/apigateway-proxy-dynamodb/dynamodb-template.yaml)
   * Create the ApiGateway stack: [apigateway-template.yaml](/apigateway-proxy-dynamodb/apigateway-template.yaml)
   
-  Notes: 
+  <em>Notes:</em>
   For the ApiGateway you will need create a role with access to actions in DynamoDB. You
   can add it's ARN as value of the parameter `DynamoDBRoleARN`
