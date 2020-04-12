@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Cloudformation stack for the article "Using Amazon API Gateway 
+    as proxy for DynamoDB" by Stefano Buliani on 26-02-2016'
+Parameters:
+    ReadCapacityUnits:
+        Description: Provisioned read throughput
+        Type: Number
+        Default: '5'
+        MinValue: '5'
+        MaxValue: '10000'
+        ConstraintDescription: must be between 5 and 10000
+    WriteCapacityUnits:
+        Description: Provisioned write throughput
+        Type: Number
+        Default: '5'
+        MinValue: '5'
+        MaxValue: '10000'
+        ConstraintDescription: must be between 5 and 10000
+Resources:
+    CommentsApi:
+        Type: AWS::ApiGateway::RestApi
+        Properties:
+            Name: CommentsApi
+    Comments:
+        Type: AWS::ApiGateway::Resources
+        Properties:
+            RestApiId: !Ref CommentsApi
+            ParentId: !GetAtt
+                - CommentsApi
+            PathPart: comments
+    PostComments:
+        Type: AWS::ApiGateway::Method
+        Properties:
+            RestApiId: !Ref CommentsApi
+            ResourceId: !GetAtt
+                - CommentsApi
+                - Comments
+            HttpMethod: POST
+            AuthorizationType: NONE
+            Integration:
+                Type: AWS
+                Uri: arn:aws:dynamodb:eu-west-2:756525791342:table/dev-apigateway-proxy-dynamo-CommentsTable-C8UVLP5VJUPE
+    CommentsTable:
+        Type: AWS::DynamoDB::Table
+        Properties:
+            AttributeDefinitions:
+            - AttributeName: commentId
+              AttributeType: S
+            - AttributeName: pageId
+              AttributeType: S
+            KeySchema:
+            - AttributeName: commentId
+              KeyType: HASH
+            GlobalSecondaryIndexes:
+            - IndexName: pageId-index
+              KeySchema:
+                - AttributeName: pageId
+                  KeyType: "HASH"
+              Projection:
+                  NonKeyAttributes: ['pageId', 'userName', 'message']
+                  ProjectionType: INCLUDE  
+              ProvisionedThroughput:
+                ReadCapacityUnits: !Ref 'ReadCapacityUnits'
+                WriteCapacityUnits: !Ref 'WriteCapacityUnits'
+            ProvisionedThroughput:
+                ReadCapacityUnits: !Ref 'ReadCapacityUnits'
+                WriteCapacityUnits: !Ref 'WriteCapacityUnits'
+Outputs:
+    TableName:
+        Value: !Ref 'CommentsTable'
+        Description: Comments DynamoDB table
+
+                

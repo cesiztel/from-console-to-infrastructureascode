@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Cloudformation stack for the article "Using Amazon API Gateway 
+    as proxy for DynamoDB" by Stefano Buliani on 26-02-2016'
+Parameters:
+    DynamoDBRoleARN:
+        Type: String
+Resources:
+    CommentsApi:
+        Type: AWS::ApiGateway::RestApi
+        Properties:
+            Name: CommentsApi
+    CommentsResource:
+        Type: AWS::ApiGateway::Resource
+        Properties:
+            RestApiId: !Ref CommentsApi
+            ParentId: !GetAtt CommentsApi.RootResourceId
+            PathPart: comments
+    PostComments:
+        Type: AWS::ApiGateway::Method
+        Properties:
+            ApiKeyRequired: false
+            AuthorizationType: NONE
+            HttpMethod: POST
+            RequestModels: 
+                application/json: 'CommentModel'
+            MethodResponses:
+            - ResponseModels: { "application/json": "Empty" }
+              StatusCode: 200
+            Integration:
+                Type: AWS
+                Credentials: !Ref DynamoDBRoleARN
+                Uri: arn:aws:apigateway:eu-west-2:dynamodb:action/PutItem
+                IntegrationHttpMethod: POST
+                RequestTemplates: 
+                    application/json: "{\"TableName\": \"dev-apigateway-proxy-dynamo-CommentsTable-C8UVLP5VJUPE\", \"Item\": { \"commentId\": { \"S\": \"$context.requestId\" }, \"pageId\": { \"S\": \"$input.path('$.pageId')\" }, \"userName\": { \"S\": \"$input.path('$.userName')\" }, \"message\": { \"S\": \"$input.path('$.message')\" }}}"
+                IntegrationResponses:
+                    - StatusCode: 200
+            OperationName: 'CreateComment'
+            ResourceId: !Ref CommentsResource
+            RestApiId: !Ref CommentsApi
+            RequestValidatorId: !Ref PostCommentValidator
+    PostCommentValidator:
+        Type: AWS::ApiGateway::RequestValidator
+        Properties: 
+            Name: PostCommentValidator
+            RestApiId: !Ref CommentsApi
+            ValidateRequestBody: true
+            ValidateRequestParameters: false
+    GetCommentsByPageIdResource:
+        Type: AWS::ApiGateway::Resource
+        Properties:
+            RestApiId: !Ref CommentsApi
+            ParentId: !Ref CommentsResource
+            PathPart: "{pageId}"
+    GetCommentsByPageIdMethod:
+        Type: AWS::ApiGateway::Method
+        Properties:
+            ApiKeyRequired: false
+            AuthorizationType: NONE
+            HttpMethod: GET
+            MethodResponses:
+                - StatusCode: 200  
+            Integration:
+                Type: AWS
+                Credentials: !Ref DynamoDBRoleARN
+                Uri: arn:aws:apigateway:eu-west-2:dynamodb:action/Query
+                IntegrationHttpMethod: POST
+                RequestTemplates: 
+                    application/json: "{\"TableName\": \"dev-apigateway-proxy-dynamo-CommentsTable-C8UVLP5VJUPE\", \"IndexName\": \"pageId-index\", \"KeyConditionExpression\": \"pageId = :v1\", \"ExpressionAttributeValues\": { \":v1\": { \"S\": \"$input.params('pageId')\" } } }"
+                IntegrationResponses:
+                    - StatusCode: 200
+                      ResponseTemplates: 
+                        application/json: "#set($inputRoot = $input.path('$')) { \"comments\": [ #foreach($elem in $inputRoot.Items) { \"commentId\": \"$elem.commentId.S\", \"userName\": \"$elem.userName.S\", \"message\": \"$elem.message.S\" } #if($foreach.hasNext),#end #end ]}"
+            OperationName: 'GetCommentsByPageId'
+            ResourceId: !Ref GetCommentsByPageIdResource
+            RestApiId: !Ref CommentsApi
+    CommentModel:
+        Type: AWS::ApiGateway::Model
+        Properties:
+            ContentType: 'application/json'
+            RestApiId: !Ref CommentsApi
+            Name: 'CommentModel'
+            Schema:
+                $schema: 'http://json-schema.org/draft-04/schema#'
+                title: Comment
+                type: object
+                properties: 
+                    commentId: 
+                        type: string
+                    message: 
+                        type: string
+                    pageId: 
+                        type: string
+                    userName: 
+                        type: string
+                required: ['pageId', 'message', 'userName']
+
+
+                
